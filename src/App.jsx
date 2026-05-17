@@ -6,15 +6,6 @@ const DEFAULT_MAINNET_ADDRESS = '0xd068673a424a8d90e9c34ccce03c1854547ddb7f'
 const DEFAULT_SEPOLIA_ADDRESS = '0xD068673a424a8d90E9C34CCCE03C1854547DdB7f'
 
 const CHAIN_CONFIGS = {
-  '0xa4b1': {
-    name: 'Arbitrum Mainnet',
-    shortName: 'Mainnet (Prod)',
-    rpc: 'https://arb1.arbitrum.io/rpc',
-    explorer: 'https://arbiscan.io',
-    address: DEFAULT_MAINNET_ADDRESS,
-    isTestnet: false,
-    colorClass: 'net-prod'
-  },
   '0x66eee': {
     name: 'Arbitrum Sepolia',
     shortName: 'Sepolia (Dev Testnet)',
@@ -23,6 +14,15 @@ const CHAIN_CONFIGS = {
     address: DEFAULT_SEPOLIA_ADDRESS,
     isTestnet: true,
     colorClass: 'net-dev'
+  },
+  '0xa4b1': {
+    name: 'Arbitrum Mainnet',
+    shortName: 'Mainnet (Prod)',
+    rpc: 'https://arb1.arbitrum.io/rpc',
+    explorer: 'https://arbiscan.io',
+    address: DEFAULT_MAINNET_ADDRESS,
+    isTestnet: false,
+    colorClass: 'net-prod'
   }
 }
 
@@ -37,10 +37,10 @@ const CONTRACT_ABI = [
 
 function App() {
   const [account, setAccount] = useState('')
-  const [chainId, setChainId] = useState('0xa4b1')
+  const [chainId, setChainId] = useState('0x66eee') // Default to Arbitrum Sepolia Dev Testnet
   const [isConnected, setIsConnected] = useState(false)
-  const [contractAddress, setContractAddress] = useState(DEFAULT_MAINNET_ADDRESS)
-  const [tokenInfo, setTokenInfo] = useState({ name: 'PopCoin NFT Collection', symbol: 'POP', minted: 3, total: 100, price: '0.01' })
+  const [contractAddress, setContractAddress] = useState(DEFAULT_SEPOLIA_ADDRESS)
+  const [tokenInfo, setTokenInfo] = useState({ name: 'PopCoin NFT Collection', symbol: 'POP', minted: 1, total: 100, price: '0.01' })
   const [balance, setBalance] = useState('0')
 
   // Loading & Transaction States
@@ -95,7 +95,7 @@ function App() {
     if (CHAIN_CONFIGS[newChainId]) {
       setContractAddress(CHAIN_CONFIGS[newChainId].address)
     } else {
-      setContractAddress(DEFAULT_MAINNET_ADDRESS)
+      setContractAddress(DEFAULT_SEPOLIA_ADDRESS)
     }
   }
 
@@ -118,7 +118,10 @@ function App() {
   }
 
   const switchNetwork = async (targetChainId) => {
-    if (!window.ethereum) return
+    if (!window.ethereum) {
+      handleChainChanged(targetChainId)
+      return
+    }
     try {
       await window.ethereum.request({
         method: 'wallet_switchEthereumChain',
@@ -141,6 +144,8 @@ function App() {
         } catch (addError) {
           console.error('Failed to add network:', addError)
         }
+      } else {
+        handleChainChanged(targetChainId)
       }
     }
   }
@@ -148,14 +153,14 @@ function App() {
   // Fetch real on-chain data directly via public RPC (works even without connected wallet)
   const fetchContractDataPublic = async () => {
     try {
-      const activeRpc = (CHAIN_CONFIGS[chainId] || CHAIN_CONFIGS['0xa4b1']).rpc
+      const activeRpc = (CHAIN_CONFIGS[chainId] || CHAIN_CONFIGS['0x66eee']).rpc
       const provider = new ethers.JsonRpcProvider(activeRpc)
       const contract = new ethers.Contract(contractAddress, CONTRACT_ABI, provider)
 
       const [name, symbol, currentTokenIdRaw, maxSupplyRaw] = await Promise.all([
         contract.name().catch(() => 'PopCoin NFT Collection'),
         contract.symbol().catch(() => 'POP'),
-        contract.currentTokenId().catch(() => 3n),
+        contract.currentTokenId().catch(() => 1n),
         contract.totalSupply().catch(() => 100n)
       ])
 
@@ -215,7 +220,7 @@ function App() {
     }
   }
 
-  const activeConfig = CHAIN_CONFIGS[chainId] || CHAIN_CONFIGS['0xa4b1']
+  const activeConfig = CHAIN_CONFIGS[chainId] || CHAIN_CONFIGS['0x66eee']
   const isSupportedChain = !!CHAIN_CONFIGS[chainId]
 
   return (
@@ -237,21 +242,6 @@ function App() {
         </div>
 
         <div className="nav-actions">
-          {/* Network Selector Pill */}
-          <div className={`network-pill ${activeConfig.colorClass}`}>
-            <span className="net-dot"></span>
-            <span className="net-text">{activeConfig.shortName}</span>
-            {isConnected && (
-              <button
-                className="net-switch-btn"
-                onClick={() => switchNetwork(chainId === '0xa4b1' ? '0x66eee' : '0xa4b1')}
-                title="Click to switch network"
-              >
-                Switch to {chainId === '0xa4b1' ? 'Sepolia Dev' : 'Mainnet Prod'}
-              </button>
-            )}
-          </div>
-
           <a
             href="https://github.com/ismael6499/popcoin-nft-minting-dapp"
             target="_blank"
@@ -273,39 +263,6 @@ function App() {
           )}
         </div>
       </nav>
-
-      {/* Mode Indicator Bar (PROD vs DEV) */}
-      <div className={`env-banner ${activeConfig.isTestnet ? 'banner-dev' : 'banner-prod'}`}>
-        <div className="banner-content">
-          {activeConfig.isTestnet ? (
-            <>
-              <span>🛠️ <strong>DEV TESTNET MODE:</strong> You are on Arbitrum Sepolia.</span>
-              <a
-                href="https://faucet.quicknode.com/drip-pools/arbitrum-sepolia"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="faucet-btn"
-              >
-                Get Free Sepolia ETH (Faucet) 🚰
-              </a>
-              {isConnected && (
-                <button className="banner-switch-link" onClick={() => switchNetwork('0xa4b1')}>
-                  Switch to Mainnet Prod ⚡
-                </button>
-              )}
-            </>
-          ) : (
-            <>
-              <span>🚀 <strong>PROD MAINNET MODE:</strong> Connected to Arbitrum One Mainnet. Live contract deployment.</span>
-              {isConnected && (
-                <button className="banner-switch-link" onClick={() => switchNetwork('0x66eee')}>
-                  Switch to Sepolia Dev 🛠️
-                </button>
-              )}
-            </>
-          )}
-        </div>
-      </div>
 
       {/* Main DApp Hero Section */}
       <main className="main-content">
@@ -366,19 +323,19 @@ function App() {
           <div className="portal-card">
             <div className="portal-header">
               <h2>PopCoin NFT Portal</h2>
-              <p className="portal-subtitle">Mint your exclusive PopCoin NFT directly on Arbitrum.</p>
+              <p className="portal-subtitle">Mint your exclusive PopCoin NFT risk-free on Arbitrum Sepolia Dev Testnet.</p>
             </div>
 
             {/* Network Banner Warning if Unsupported */}
             {isConnected && !isSupportedChain && (
               <div className="alert alert-warning">
-                <p>⚠️ Connected to an unsupported network. Please switch to Arbitrum to mint.</p>
+                <p>⚠️ Connected to an unsupported network. Please switch to Arbitrum Sepolia Dev Testnet.</p>
                 <div className="switcher-btns">
+                  <button className="btn btn-secondary btn-sm" onClick={() => switchNetwork('0x66eee')}>
+                    Switch to Arbitrum Sepolia (Dev Testnet)
+                  </button>
                   <button className="btn btn-secondary btn-sm" onClick={() => switchNetwork('0xa4b1')}>
                     Switch to Arbitrum Mainnet (Prod)
-                  </button>
-                  <button className="btn btn-secondary btn-sm" onClick={() => switchNetwork('0x66eee')}>
-                    Switch to Arbitrum Sepolia (Dev)
                   </button>
                 </div>
               </div>
@@ -387,7 +344,7 @@ function App() {
             {/* Collection Progress Bar */}
             <div className="progress-card">
               <div className="progress-header">
-                <span className="progress-title">Collection Progress (On-Chain Live)</span>
+                <span className="progress-title">Collection Progress ({activeConfig.name})</span>
                 <span className="progress-count">{tokenInfo.minted} / {tokenInfo.total} Minted</span>
               </div>
               <div className="progress-bar-bg">
@@ -410,7 +367,7 @@ function App() {
               </div>
               <div className="info-row">
                 <span className="info-key">Mint Price:</span>
-                <span className="info-val highlight"><strong>0.01 ETH</strong></span>
+                <span className="info-val highlight"><strong>0.01 ETH</strong> (Sepolia Test ETH)</span>
               </div>
             </div>
 
@@ -419,16 +376,28 @@ function App() {
               {!isConnected ? (
                 <div className="connect-prompt">
                   <button className="btn btn-primary btn-glow btn-block btn-lg" onClick={connectWallet}>
-                    Connect Web3 Wallet to Mint
+                    Connect Web3 Wallet to Mint (Sepolia Dev)
                   </button>
-                  <a
-                    href={`${activeConfig.explorer}/address/${contractAddress}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-secondary btn-block"
-                  >
-                    View Verified Contract on Arbiscan ↗
-                  </a>
+                  <div className="prompt-links-row">
+                    <a
+                      href="https://faucet.quicknode.com/drip-pools/arbitrum-sepolia"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-secondary"
+                      style={{ flex: 1, textDecoration: 'none', textAlign: 'center' }}
+                    >
+                      Get Free Sepolia ETH 🚰
+                    </a>
+                    <a
+                      href={`${activeConfig.explorer}/address/${contractAddress}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-secondary"
+                      style={{ flex: 1, textDecoration: 'none', textAlign: 'center' }}
+                    >
+                      Contract on Explorer ↗
+                    </a>
+                  </div>
                 </div>
               ) : (
                 <div className="mint-prompt">
@@ -437,7 +406,7 @@ function App() {
                     onClick={mintToken}
                     disabled={isMinting || !isSupportedChain}
                   >
-                    {isMinting ? 'Minting in Progress...' : 'Mint 1 PopCoin NFT (0.01 ETH)'}
+                    {isMinting ? 'Minting in Progress...' : 'Mint 1 PopCoin NFT (0.01 Sepolia ETH)'}
                   </button>
 
                   <div className="gas-info-row">
@@ -457,12 +426,12 @@ function App() {
 
               {mintStatus === 'SUCCESS' && (
                 <div className="alert alert-success">
-                  <p>🎉 NFT Minted Successfully!</p>
+                  <p>🎉 NFT Minted Successfully on Sepolia Testnet!</p>
                   <div className="explorer-links">
                     <a href={`${activeConfig.explorer}/tx/${lastTxHash}`} target="_blank" rel="noopener noreferrer">
-                      View Transaction on Explorer ↗
+                      View Transaction on Sepolia Explorer ↗
                     </a>
-                    <a href={`https://opensea.io/assets/arbitrum/${contractAddress}`} target="_blank" rel="noopener noreferrer">
+                    <a href={`https://opensea.io/assets/arbitrum-sepolia/${contractAddress}`} target="_blank" rel="noopener noreferrer">
                       View Collection on OpenSea ↗
                     </a>
                   </div>
@@ -479,10 +448,18 @@ function App() {
                 </a>
               </div>
               <div className="meta-row">
-                <span className="meta-key">Network Environment:</span>
-                <span className={`meta-val ${activeConfig.isTestnet ? 'text-dev' : 'text-prod'}`}>
-                  {activeConfig.name} ({activeConfig.isTestnet ? 'Dev Testnet' : 'Mainnet Prod'})
-                </span>
+                <span className="meta-key">Active Environment:</span>
+                <div className="meta-switch-box">
+                  <span className={`meta-val ${activeConfig.isTestnet ? 'text-dev' : 'text-prod'}`}>
+                    {activeConfig.shortName}
+                  </span>
+                  <button
+                    className="btn-switch-bottom"
+                    onClick={() => switchNetwork(chainId === '0x66eee' ? '0xa4b1' : '0x66eee')}
+                  >
+                    Switch to {chainId === '0x66eee' ? 'Mainnet Prod ⚡' : 'Sepolia Dev Testnet 🛠️'}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -491,13 +468,42 @@ function App() {
         </div>
       </main>
 
+      {/* Mode Indicator Bar at Bottom */}
+      <div className={`env-banner ${activeConfig.isTestnet ? 'banner-dev' : 'banner-prod'}`}>
+        <div className="banner-content">
+          {activeConfig.isTestnet ? (
+            <>
+              <span>🛠️ <strong>DEV TESTNET MODE:</strong> You are on Arbitrum Sepolia. Mint risk-free with test ETH!</span>
+              <a
+                href="https://faucet.quicknode.com/drip-pools/arbitrum-sepolia"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="faucet-btn"
+              >
+                Get Free Sepolia ETH (Faucet) 🚰
+              </a>
+              <button className="banner-switch-link" onClick={() => switchNetwork('0xa4b1')}>
+                Switch Network to Mainnet Prod ⚡
+              </button>
+            </>
+          ) : (
+            <>
+              <span>🚀 <strong>PROD MAINNET MODE:</strong> Connected to Arbitrum One Mainnet. Live contract deployment.</span>
+              <button className="banner-switch-link" onClick={() => switchNetwork('0x66eee')}>
+                Switch Network to Sepolia Dev 🛠️
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
       {/* Footer */}
       <footer className="footer">
         <p>© 2026 PopCoin NFT Protocol — Built by <a href="https://github.com/ismael6499" target="_blank" rel="noopener noreferrer">Agustin Acosta</a></p>
         <div className="footer-links">
           <a href="https://github.com/ismael6499/popcoin-nft-minting-dapp" target="_blank" rel="noopener noreferrer">GitHub Repository</a>
-          <a href="https://arbiscan.io/address/0xd068673a424a8d90e9c34ccce03c1854547ddb7f" target="_blank" rel="noopener noreferrer">Arbiscan Explorer</a>
-          <a href="https://opensea.io" target="_blank" rel="noopener noreferrer">OpenSea</a>
+          <a href="https://sepolia.arbiscan.io/address/0xD068673a424a8d90E9C34CCCE03C1854547DdB7f" target="_blank" rel="noopener noreferrer">Sepolia Explorer</a>
+          <a href="https://faucet.quicknode.com/drip-pools/arbitrum-sepolia" target="_blank" rel="noopener noreferrer">Testnet Faucet</a>
         </div>
       </footer>
     </div>
