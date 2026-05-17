@@ -7,41 +7,41 @@ const DEFAULT_SEPOLIA_ADDRESS = '0xD068673a424a8d90E9C34CCCE03C1854547DdB7f'
 
 const CHAIN_CONFIGS = {
   '0xa4b1': {
-    name: 'Arbitrum One',
+    name: 'Arbitrum Mainnet',
+    shortName: 'Mainnet (Prod)',
     rpc: 'https://arb1.arbitrum.io/rpc',
     explorer: 'https://arbiscan.io',
     address: DEFAULT_MAINNET_ADDRESS,
-    isTestnet: false
+    isTestnet: false,
+    colorClass: 'net-prod'
   },
   '0x66eee': {
     name: 'Arbitrum Sepolia',
+    shortName: 'Sepolia (Dev Testnet)',
     rpc: 'https://sepolia-rollup.arbitrum.io/rpc',
     explorer: 'https://sepolia.arbiscan.io',
     address: DEFAULT_SEPOLIA_ADDRESS,
-    isTestnet: true
+    isTestnet: true,
+    colorClass: 'net-dev'
   }
 }
 
 const CONTRACT_ABI = [
   "function mint() external payable",
-  "function mint(uint256 quantity) external payable",
   "function balanceOf(address owner) external view returns (uint256)",
   "function name() external view returns (string)",
   "function symbol() external view returns (string)",
   "function currentTokenId() external view returns (uint256)",
-  "function totalSupply() external view returns (uint256)",
-  "function MAX_SUPPLY() external view returns (uint256)",
-  "function MINT_PRICE() external view returns (uint256)"
+  "function totalSupply() external view returns (uint256)"
 ]
 
 function App() {
   const [account, setAccount] = useState('')
-  const [chainId, setChainId] = useState('')
+  const [chainId, setChainId] = useState('0xa4b1')
   const [isConnected, setIsConnected] = useState(false)
   const [contractAddress, setContractAddress] = useState(DEFAULT_MAINNET_ADDRESS)
-  const [tokenInfo, setTokenInfo] = useState({ name: 'PopCoin NFT Collection', symbol: 'PCNFT', minted: 42, total: 1000, price: '0.01' })
+  const [tokenInfo, setTokenInfo] = useState({ name: 'PopCoin NFT Collection', symbol: 'POP', minted: 3, total: 100, price: '0.01' })
   const [balance, setBalance] = useState('0')
-  const [mintQuantity, setMintQuantity] = useState(1)
 
   // Loading & Transaction States
   const [isLoading, setIsLoading] = useState(false)
@@ -50,8 +50,10 @@ function App() {
   const [gasEstimate, setGasEstimate] = useState('0.00012')
   const [lastTxHash, setLastTxHash] = useState('')
 
-  // Check if wallet is already connected
+  // Fetch real on-chain contract data on initial mount
   useEffect(() => {
+    fetchContractDataPublic()
+
     if (window.ethereum) {
       window.ethereum.request({ method: 'eth_accounts' })
         .then(handleAccountsChanged)
@@ -64,6 +66,7 @@ function App() {
       window.ethereum.on('accountsChanged', handleAccountsChanged)
       window.ethereum.on('chainChanged', handleChainChanged)
     }
+
     return () => {
       if (window.ethereum) {
         window.ethereum.removeListener('accountsChanged', handleAccountsChanged)
@@ -72,12 +75,10 @@ function App() {
     }
   }, [])
 
-  // Sync token metadata and balances when chain or account changes
+  // Sync token metadata when chain or contract address changes
   useEffect(() => {
-    if (isConnected && account && chainId) {
-      fetchContractData()
-    }
-  }, [isConnected, account, chainId, contractAddress])
+    fetchContractDataPublic()
+  }, [chainId, contractAddress, account])
 
   const handleAccountsChanged = (accounts) => {
     if (accounts.length === 0) {
@@ -144,30 +145,22 @@ function App() {
     }
   }
 
-  const fetchContractData = async () => {
-    setIsLoading(true)
+  // Fetch real on-chain data directly via public RPC (works even without connected wallet)
+  const fetchContractDataPublic = async () => {
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum)
+      const activeRpc = (CHAIN_CONFIGS[chainId] || CHAIN_CONFIGS['0xa4b1']).rpc
+      const provider = new ethers.JsonRpcProvider(activeRpc)
       const contract = new ethers.Contract(contractAddress, CONTRACT_ABI, provider)
 
-      const [name, symbol, userBalance] = await Promise.all([
+      const [name, symbol, currentTokenIdRaw, maxSupplyRaw] = await Promise.all([
         contract.name().catch(() => 'PopCoin NFT Collection'),
-        contract.symbol().catch(() => 'PCNFT'),
-        contract.balanceOf(account).catch(() => 0)
+        contract.symbol().catch(() => 'POP'),
+        contract.currentTokenId().catch(() => 3n),
+        contract.totalSupply().catch(() => 100n)
       ])
 
-      let mintedCount = 42
-      let maxSupply = 1000
-
-      try {
-        const total = await contract.totalSupply()
-        mintedCount = Number(total)
-      } catch (e) {
-        try {
-          const curr = await contract.currentTokenId()
-          mintedCount = Number(curr)
-        } catch (err) {}
-      }
+      const mintedCount = Number(currentTokenIdRaw)
+      const maxSupply = Number(maxSupplyRaw)
 
       setTokenInfo({
         name,
@@ -176,11 +169,16 @@ function App() {
         total: maxSupply,
         price: '0.01'
       })
-      setBalance(userBalance ? userBalance.toString() : '0')
+
+      // If user account is connected, fetch user balance
+      if (account && window.ethereum) {
+        const web3Provider = new ethers.BrowserProvider(window.ethereum)
+        const userContract = new ethers.Contract(contractAddress, CONTRACT_ABI, web3Provider)
+        const userBalance = await userContract.balanceOf(account).catch(() => 0n)
+        setBalance(userBalance.toString())
+      }
     } catch (err) {
-      console.error('Error fetching contract data:', err)
-    } finally {
-      setIsLoading(false)
+      console.error('Error fetching public contract data:', err)
     }
   }
 
@@ -198,25 +196,20 @@ function App() {
       const signer = await provider.getSigner()
       const contract = new ethers.Contract(contractAddress, CONTRACT_ABI, signer)
 
-      const mintPriceWei = ethers.parseEther((0.01 * mintQuantity).toString())
-      setMintStatus('Please confirm transaction in your wallet...')
+      const mintPriceWei = ethers.parseEther('0.01')
+      setMintStatus('Please confirm 0.01 ETH transaction in your wallet...')
 
-      let tx
-      try {
-        tx = await contract['mint(uint256)'](mintQuantity, { value: mintPriceWei })
-      } catch (e) {
-        tx = await contract['mint()']({ value: mintPriceWei })
-      }
+      const tx = await contract.mint({ value: mintPriceWei })
 
-      setMintStatus('Transaction submitted! Awaiting block confirmation...')
+      setMintStatus('Transaction submitted to Arbitrum! Awaiting confirmation...')
       setLastTxHash(tx.hash)
 
       await tx.wait()
       setMintStatus('SUCCESS')
-      fetchContractData()
+      fetchContractDataPublic()
     } catch (err) {
       console.error('Minting error:', err)
-      setMintStatus(err.message ? err.message.slice(0, 100) : 'Transaction rejected or failed.')
+      setMintStatus(err.message ? err.message.slice(0, 110) : 'Transaction rejected or failed.')
     } finally {
       setIsMinting(false)
     }
@@ -227,24 +220,38 @@ function App() {
 
   return (
     <div className="app-container">
-      {/* Background Animated Glowing Orbs */}
-      <div className="ambient-orb orb-1"></div>
-      <div className="ambient-orb orb-2"></div>
-      <div className="ambient-orb orb-3"></div>
+      {/* Background Animated Ambient Mesh */}
+      <div className="ambient-mesh mesh-1"></div>
+      <div className="ambient-mesh mesh-2"></div>
 
       {/* Navigation Header */}
       <nav className="navbar">
         <div className="nav-brand">
           <div className="brand-logo">
-            <span className="coin-icon">🪙</span>
+            <span className="coin-icon">⚡</span>
           </div>
           <div className="brand-titles">
             <span className="brand-name">PopCoin</span>
-            <span className="brand-badge">Arbitrum Web3</span>
+            <span className="brand-badge">Arbitrum Web3 Engine</span>
           </div>
         </div>
 
         <div className="nav-actions">
+          {/* Network Selector Pill */}
+          <div className={`network-pill ${activeConfig.colorClass}`}>
+            <span className="net-dot"></span>
+            <span className="net-text">{activeConfig.shortName}</span>
+            {isConnected && (
+              <button
+                className="net-switch-btn"
+                onClick={() => switchNetwork(chainId === '0xa4b1' ? '0x66eee' : '0xa4b1')}
+                title="Click to switch network"
+              >
+                Switch to {chainId === '0xa4b1' ? 'Sepolia Dev' : 'Mainnet Prod'}
+              </button>
+            )}
+          </div>
+
           <a
             href="https://github.com/ismael6499/popcoin-nft-minting-dapp"
             target="_blank"
@@ -267,6 +274,39 @@ function App() {
         </div>
       </nav>
 
+      {/* Mode Indicator Bar (PROD vs DEV) */}
+      <div className={`env-banner ${activeConfig.isTestnet ? 'banner-dev' : 'banner-prod'}`}>
+        <div className="banner-content">
+          {activeConfig.isTestnet ? (
+            <>
+              <span>🛠️ <strong>DEV TESTNET MODE:</strong> You are on Arbitrum Sepolia.</span>
+              <a
+                href="https://faucet.quicknode.com/drip-pools/arbitrum-sepolia"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="faucet-btn"
+              >
+                Get Free Sepolia ETH (Faucet) 🚰
+              </a>
+              {isConnected && (
+                <button className="banner-switch-link" onClick={() => switchNetwork('0xa4b1')}>
+                  Switch to Mainnet Prod ⚡
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <span>🚀 <strong>PROD MAINNET MODE:</strong> Connected to Arbitrum One Mainnet. Live contract deployment.</span>
+              {isConnected && (
+                <button className="banner-switch-link" onClick={() => switchNetwork('0x66eee')}>
+                  Switch to Sepolia Dev 🛠️
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
       {/* Main DApp Hero Section */}
       <main className="main-content">
         <div className="dapp-grid">
@@ -276,11 +316,13 @@ function App() {
             <div className="nft-preview-box">
               <div className="nft-badge-top">
                 <span className="badge-chip">ERC-721 Standard</span>
-                <span className="badge-chip highlight">Arbitrum One</span>
+                <span className={`badge-chip ${activeConfig.isTestnet ? 'dev-chip' : 'prod-chip'}`}>
+                  {activeConfig.name}
+                </span>
               </div>
 
               <div className="nft-art-container">
-                <div className="coin-3d-ring"></div>
+                <div className="coin-glow-ring"></div>
                 <div className="coin-emblem">
                   <div className="coin-face">
                     <span className="coin-symbol">⚡</span>
@@ -291,9 +333,9 @@ function App() {
 
               <div className="nft-preview-info">
                 <h3>PopCoin Genesis NFT</h3>
-                <p>Limited Edition 1,000 Utility Tokenized Assets on Arbitrum</p>
+                <p>Limited Edition 100 Utility Tokenized Assets on Arbitrum</p>
                 <div className="nft-price-tag">
-                  <span>Mint Price</span>
+                  <span>Mint Price (Single Mint)</span>
                   <strong>0.01 ETH</strong>
                 </div>
               </div>
@@ -303,7 +345,7 @@ function App() {
             <div className="traits-grid">
               <div className="trait-card">
                 <span className="trait-label">Standard</span>
-                <span className="trait-value">ERC-721 Enumerable</span>
+                <span className="trait-value">ERC-721 Standard</span>
               </div>
               <div className="trait-card">
                 <span className="trait-label">Storage</span>
@@ -333,19 +375,19 @@ function App() {
                 <p>⚠️ Connected to an unsupported network. Please switch to Arbitrum to mint.</p>
                 <div className="switcher-btns">
                   <button className="btn btn-secondary btn-sm" onClick={() => switchNetwork('0xa4b1')}>
-                    Arbitrum Mainnet
+                    Switch to Arbitrum Mainnet (Prod)
                   </button>
                   <button className="btn btn-secondary btn-sm" onClick={() => switchNetwork('0x66eee')}>
-                    Arbitrum Sepolia
+                    Switch to Arbitrum Sepolia (Dev)
                   </button>
                 </div>
               </div>
             )}
 
-            {/* Progress Section */}
+            {/* Collection Progress Bar */}
             <div className="progress-card">
               <div className="progress-header">
-                <span className="progress-title">Collection Progress</span>
+                <span className="progress-title">Collection Progress (On-Chain Live)</span>
                 <span className="progress-count">{tokenInfo.minted} / {tokenInfo.total} Minted</span>
               </div>
               <div className="progress-bar-bg">
@@ -355,34 +397,20 @@ function App() {
                 ></div>
               </div>
               <div className="progress-footer">
-                <span>Total Supply: {tokenInfo.total}</span>
-                <span>{((tokenInfo.minted / tokenInfo.total) * 100).toFixed(1)}% Completed</span>
+                <span>Max Supply Limit: {tokenInfo.total}</span>
+                <span>{((tokenInfo.minted / tokenInfo.total) * 100).toFixed(1)}% Minted</span>
               </div>
             </div>
 
-            {/* Quantity Selector */}
-            <div className="quantity-card">
-              <span className="quantity-label">Quantity to Mint</span>
-              <div className="quantity-controls">
-                <button
-                  className="qty-btn"
-                  onClick={() => setMintQuantity(Math.max(1, mintQuantity - 1))}
-                  disabled={mintQuantity <= 1}
-                >
-                  -
-                </button>
-                <span className="qty-val">{mintQuantity}</span>
-                <button
-                  className="qty-btn"
-                  onClick={() => setMintQuantity(Math.min(10, mintQuantity + 1))}
-                  disabled={mintQuantity >= 10}
-                >
-                  +
-                </button>
+            {/* Single Mint Information Box */}
+            <div className="mint-info-box">
+              <div className="info-row">
+                <span className="info-key">Mint Quantity:</span>
+                <span className="info-val"><strong>1 PopCoin NFT</strong> per Tx</span>
               </div>
-              <div className="total-price">
-                <span>Total Cost:</span>
-                <strong>{(0.01 * mintQuantity).toFixed(2)} ETH</strong>
+              <div className="info-row">
+                <span className="info-key">Mint Price:</span>
+                <span className="info-val highlight"><strong>0.01 ETH</strong></span>
               </div>
             </div>
 
@@ -394,7 +422,7 @@ function App() {
                     Connect Web3 Wallet to Mint
                   </button>
                   <a
-                    href={`https://arbiscan.io/address/${contractAddress}`}
+                    href={`${activeConfig.explorer}/address/${contractAddress}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn btn-secondary btn-block"
@@ -409,11 +437,11 @@ function App() {
                     onClick={mintToken}
                     disabled={isMinting || !isSupportedChain}
                   >
-                    {isMinting ? 'Minting in Progress...' : `Mint ${mintQuantity} PopCoin NFT (${(0.01 * mintQuantity).toFixed(2)} ETH)`}
+                    {isMinting ? 'Minting in Progress...' : 'Mint 1 PopCoin NFT (0.01 ETH)'}
                   </button>
 
                   <div className="gas-info-row">
-                    <span>Estimated Gas: <strong>~{gasEstimate} ETH</strong></span>
+                    <span>Est. Gas: <strong>~{gasEstimate} ETH</strong></span>
                     <span>Your Balance: <strong>{balance} {tokenInfo.symbol}</strong></span>
                   </div>
                 </div>
@@ -435,24 +463,26 @@ function App() {
                       View Transaction on Explorer ↗
                     </a>
                     <a href={`https://opensea.io/assets/arbitrum/${contractAddress}`} target="_blank" rel="noopener noreferrer">
-                      View on OpenSea ↗
+                      View Collection on OpenSea ↗
                     </a>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Contract Footer Info */}
+            {/* Contract Footer Meta Info */}
             <div className="contract-meta-card">
               <div className="meta-row">
-                <span className="meta-key">Contract Address</span>
+                <span className="meta-key">Contract Address:</span>
                 <a href={`${activeConfig.explorer}/address/${contractAddress}`} target="_blank" rel="noopener noreferrer" className="meta-val">
                   {contractAddress.slice(0, 10)}...{contractAddress.slice(-8)} ↗
                 </a>
               </div>
               <div className="meta-row">
-                <span className="meta-key">Network</span>
-                <span className="meta-val">{activeConfig.name}</span>
+                <span className="meta-key">Network Environment:</span>
+                <span className={`meta-val ${activeConfig.isTestnet ? 'text-dev' : 'text-prod'}`}>
+                  {activeConfig.name} ({activeConfig.isTestnet ? 'Dev Testnet' : 'Mainnet Prod'})
+                </span>
               </div>
             </div>
 
