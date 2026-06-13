@@ -1,0 +1,24 @@
+{
+  "name": "bloque-21",
+  "version": "1.0.0",
+  "description": "Simple React App with Smart Contract Integration",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node node_modules/vite/bin/vite.js",
+    "build": "node node_modules/vite/bin/vite.js build",
+    "preview": "node node_modules/vite/bin/vite.js preview"
+  },
+  "keywords": ["react", "ethereum", "smart-contract", "arbitrum"],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "ethers": "^6.8.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.1.1",
+    "vite": "^4.5.0"
+  }
+}
