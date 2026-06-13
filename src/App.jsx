@@ -276,6 +276,14 @@ function App() {
                 <span className="dot"></span>
                 {isSupportedChain ? activeConfig.name : 'Unsupported'}
               </span>
+              {isSupportedChain && (
+                <button
+                  className="switch-network-btn"
+                  onClick={() => switchNetwork(chainId === '0xa4b1' ? '0x66eee' : '0xa4b1')}
+                >
+                  Switch to {chainId === '0xa4b1' ? 'Sepolia' : 'Mainnet'}
+                </button>
+              )}
             </div>
           </div>
 

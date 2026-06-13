@@ -232,6 +232,26 @@ body {
   display: inline-block;
 }
 
+.switch-network-btn {
+  background: transparent;
+  border: none;
+  color: var(--primary-hover);
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  margin-top: 4px;
+  width: fit-content;
+  transition: color 0.2s ease;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.switch-network-btn:hover {
+  color: white;
+}
+
 /* Alerts */
 .alert {
   border-radius: 12px;
