@@ -14,8 +14,8 @@ contract DeployPopCoin is Script {
 
         string memory name = "PopCoin NFT Collection";
         string memory symbol = "POP";
-        uint256 totalSupply = 10000;
-        string memory baseUri = "ipfs://QmZ1hJ7uP6a9X7hX9S2nQjJ7W9QhJ7W9QhJ7W9QhJ7W9Qh/";
+        uint256 totalSupply = 100;
+        string memory baseUri = "ipfs://bafybeieyvfd4dmfob3o5466joando37trerrzxnrluvsau4tixuz72h4tm/metadata/";
 
         if (deployerPrivateKey != 0) {
             vm.startBroadcast(deployerPrivateKey);

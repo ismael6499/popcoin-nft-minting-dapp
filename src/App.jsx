@@ -3,7 +3,7 @@ import { ethers } from 'ethers'
 
 // Deployed PopCoin Contract Address on Arbitrum One Mainnet
 const DEFAULT_MAINNET_ADDRESS = '0xd068673a424a8d90e9c34ccce03c1854547ddb7f'
-const DEFAULT_SEPOLIA_ADDRESS = '' // Will be updated after testnet deployment
+const DEFAULT_SEPOLIA_ADDRESS = '0xD068673a424a8d90E9C34CCCE03C1854547DdB7f'
 
 const CHAIN_CONFIGS = {
   '0xa4b1': {
@@ -36,7 +36,7 @@ function App() {
   const [chainId, setChainId] = useState('')
   const [isConnected, setIsConnected] = useState(false)
   const [contractAddress, setContractAddress] = useState(DEFAULT_MAINNET_ADDRESS)
-  const [tokenInfo, setTokenInfo] = useState({ name: 'PopCoin NFT Collection', symbol: 'POP', minted: 0, total: 10000 })
+  const [tokenInfo, setTokenInfo] = useState({ name: 'PopCoin NFT Collection', symbol: 'POP', minted: 0, total: 100 })
   const [balance, setBalance] = useState(0)
 
   // Loading & Transaction States
@@ -333,49 +333,66 @@ function App() {
                   </div>
                 ) : (
                   <>
-                    <button
-                      id="btn-mint-nft"
-                      className="btn btn-primary btn-glow btn-block"
-                      onClick={mintToken}
-                      disabled={isMinting || tokenInfo.minted >= tokenInfo.total}
-                    >
-                      {isMinting ? 'Minting...' : 'Mint PopCoin NFT'}
-                    </button>
-
-                    <div className="gas-info">
-                      <span>Estimated gas cost: <strong>{gasEstimate} ETH</strong></span>
-                    </div>
-
-                    {/* Status Tracking */}
-                    {isMinting && (
-                      <div className="status-tracker">
-                        <span className="spinner"></span>
-                        <span>{mintStatus}</span>
+                    {tokenInfo.minted >= tokenInfo.total ? (
+                      <div className="alert alert-soldout">
+                        <p className="soldout-title">🎉 Sold Out</p>
+                        <p>All {tokenInfo.total} PopCoin NFTs have been minted.</p>
+                        <a
+                          href={`https://opensea.io/assets/arbitrum-sepolia/${contractAddress}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn btn-secondary btn-block"
+                          style={{ marginTop: '10px', textDecoration: 'none', display: 'flex' }}
+                        >
+                          View Collection on OpenSea
+                        </a>
                       </div>
-                    )}
+                    ) : (
+                      <>
+                        <button
+                          id="btn-mint-nft"
+                          className="btn btn-primary btn-glow btn-block"
+                          onClick={mintToken}
+                          disabled={isMinting}
+                        >
+                          {isMinting ? 'Minting...' : 'Mint PopCoin NFT'}
+                        </button>
 
-                    {mintStatus === 'SUCCESS' && (
-                      <div className="alert alert-success">
-                        <p>NFT minted successfully!</p>
-                        <div className="explorer-links">
-                          <a
-                            href={`${activeConfig.explorer}/tx/${lastTxHash}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            View on Explorer
-                          </a>
-                          <a
-                            href={`https://opensea.io/assets/arbitrum/${contractAddress}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            View on OpenSea
-                          </a>
+                        <div className="gas-info">
+                          <span>Estimated gas cost: <strong>{gasEstimate} ETH</strong></span>
                         </div>
-                      </div>
+
+                        {/* Status Tracking */}
+                        {isMinting && (
+                          <div className="status-tracker">
+                            <span className="spinner"></span>
+                            <span>{mintStatus}</span>
+                          </div>
+                        )}
+
+                        {mintStatus === 'SUCCESS' && (
+                          <div className="alert alert-success">
+                            <p>NFT minted successfully!</p>
+                            <div className="explorer-links">
+                              <a
+                                href={`${activeConfig.explorer}/tx/${lastTxHash}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                View on Explorer
+                              </a>
+                              <a
+                                href={`https://opensea.io/assets/arbitrum/${contractAddress}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                View on OpenSea
+                              </a>
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
-                  </>
                 )}
               </div>
             </>
@@ -386,6 +403,7 @@ function App() {
       <div className="footer">
         <p>PopCoin DApp — Deployed on Arbitrum</p>
         <p>Contract: <a href={`https://arbiscan.io/address/${DEFAULT_MAINNET_ADDRESS}`} target="_blank" rel="noopener noreferrer" className="faucet-link">{DEFAULT_MAINNET_ADDRESS.slice(0, 10)}…</a></p>
+        <p className="footer-author">Built by <a href="https://github.com/ismael6499" target="_blank" rel="noopener noreferrer" className="faucet-link">Agustin Acosta</a></p>
       </div>
     </div>
   )

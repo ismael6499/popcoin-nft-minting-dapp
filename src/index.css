@@ -273,6 +273,21 @@ body {
   margin-bottom: 6px;
 }
 
+.alert-soldout {
+  background: hsla(45, 90%, 55%, 0.1);
+  border-color: rgba(220, 170, 0, 0.25);
+  color: var(--text-primary);
+  text-align: center;
+  margin-bottom: 0;
+}
+
+.soldout-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: hsl(45, 90%, 60%);
+  margin-bottom: 4px;
+}
+
 .switcher-btns {
   display: flex;
   gap: 8px;
@@ -405,6 +420,12 @@ body {
 
 .footer a {
   transition: color 0.2s ease;
+}
+
+.footer-author {
+  margin-top: 6px;
+  font-weight: 500;
+  color: var(--text-secondary);
 }
 
 /* Spinner Animation */
