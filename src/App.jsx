@@ -251,6 +251,9 @@ function App() {
       <div className="header">
         <h1>PopCoin Portal</h1>
         <p className="subtitle">ERC-721 NFT Minting Interface — Arbitrum</p>
+        <div className="author-badge">
+          Built by <a href="https://github.com/ismael6499" target="_blank" rel="noopener noreferrer">Agustin Acosta</a>
+        </div>
       </div>
 
       <div className="divider"></div>
